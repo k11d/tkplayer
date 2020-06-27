@@ -25,6 +25,9 @@ class PlayerStates:
         self.rot90_steps = 0
         self.scale = 1.0
         self.scale_step = 0.1
+        self.x_offset = 0
+        self.y_offset = 0
+        self.translate_step = 5
         self.grayscale = False
         self._next = True
 
@@ -58,6 +61,22 @@ class PlayerStates:
         if self.scale > self.scale_step:
             self.scale -= self.scale_step
     
+    def translate_reset(self):
+        self.x_offset = 0
+        self.y_offset = 0
+    
+    def translate_down(self):
+        self.y_offset -= self.translate_step
+    
+    def translate_up(self):
+        self.y_offset += self.translate_step
+    
+    def translate_left(self):
+        self.x_offset -= self.translate_step
+    
+    def translate_right(self):
+        self.x_offset += self.translate_step
+    
     def grayscale_toggle(self):
         self.grayscale = not self.grayscale
         self._next = True
@@ -88,6 +107,11 @@ class Player:
         self.pc = PlayerStates()
         self._ui = ui(self.root, self.pc)
         self.label = self._ui['label']
+        
+        self.cap = self._open_stream(self.source)
+        self.frames = it.cycle(self._play_stream(self.cap))
+        self.t0 = time.time()
+        
         self.label.after(10, self._start_stream)
         self.root.mainloop()
 
@@ -114,7 +138,7 @@ class Player:
 
         def _as_photoimage(ar):
             if self.pc.scale != 1.0:
-                ar = scale(ar, self.pc.scale)
+                ar = scale(ar, self.pc.scale, self.pc.x_offset, self.pc.y_offset)
             if self.pc.flip_v:
                 ar = flip_v(ar)
             if self.pc.flip_h:
@@ -126,7 +150,6 @@ class Player:
             return ImageTk.PhotoImage(Image.fromarray(ar))
 
         def loop(last_frame):
-            nonlocal t0
             try:
                 if self.pc._next:
                     if self.pc.paused:
@@ -146,14 +169,11 @@ class Player:
 
             self.label.image = frame_image
             t1 = time.time()
-            dt = (t1 - t0) * 1000
-            t0 = t1
+            dt = (t1 - self.t0) * 1000
+            self.t0 = t1
             self.root.title(f"{self.pc.pos}/{self.pc.count}")
             self.label.after(int(max(1.0, self.pc.delay - dt)), lambda: loop(frame_image))
 
-        self.cap = self._open_stream(self.source)
-        self.frames = it.cycle(self._play_stream(self.cap))
-        t0 = time.time()
         loop(_as_photoimage(next(self.frames)))
 
 
@@ -183,7 +203,17 @@ def ui(root, pc):
     Button(scale_btns, text="0", command=pc.scale_reset).pack(side="left")
     Button(scale_btns, text="-", command=pc.scale_down).pack(side="right")
 
+    offset_btns = Frame(btns_frame)
+    offset_btns.grid(row=5, column=0)
+    Button(offset_btns, text="L", command=pc.translate_left).pack(side="left")
+    Button(offset_btns, text="R", command=pc.translate_right).pack(side="right")
+    Button(offset_btns, text="U", command=pc.translate_up).pack(side="top")
+    Button(offset_btns, text="D", command=pc.translate_down).pack(side="bottom")
+    Button(offset_btns, text="0", command=pc.translate_reset).pack()
+
+
     seq_btns = Frame(btns_frame)
+    seq_btns.grid(row=6, column=0)
     Button(seq_btns, text="A", command=pc.set_sequence_start).pack(side="left")
     Button(seq_btns, text="Reset", command=pc.reset_sequence).pack(side="left")
     Button(seq_btns, text="B", command=pc.set_sequence_end).pack(side="right")
@@ -213,14 +243,14 @@ def flip_v(img):
 def rotate(img, steps):
     return np.rot90(img, k=steps)
 
-def scale(img, fact):
+def scale(img, fact, xoff, yoff):
     width = int(img.shape[1] * fact)
     height = int(img.shape[0] * fact)
     dim = (width, height)
     onscreen_width = max(screen_w, width)
     onscreen_height = max(screen_h, height)
     scaled = cv2.resize(img, dim, interpolation=cv2.INTER_AREA)
-    ret = scaled[:onscreen_height,:onscreen_width]
+    ret = scaled[max(0, yoff):min(height, onscreen_height+yoff),max(0, xoff):min(width, onscreen_width+xoff)]
     return ret
 
 def scrub(cap, deltaFrames):
