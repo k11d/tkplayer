@@ -9,6 +9,7 @@ import time
 import numpy as np
 import cv2
 import itertools as it
+import ui
 
 
 screen_h = screeninfo.get_monitors()[0].height
@@ -92,6 +93,8 @@ class PlayerStates:
     def set_sequence_end(self):
         self.frames_b = self.pos
         self.loop_replay = True
+        print("Sequence set from:", self.frames_a, " to:", self.frames_b)
+
     
     def reset_sequence(self):
         self.cached_frames.clear()
@@ -99,13 +102,14 @@ class PlayerStates:
         self.frames_a = -1
         self.loop_replay = False
 
+
 class Player:
     def __init__(self, source):
         self.source = source
         self.root = Tk()
         self.root.geometry(f"{screen_w}x{screen_h}")
         self.pc = PlayerStates()
-        self._ui = ui(self.root, self.pc)
+        self._ui = ui.main_ui(self.root, self.pc)
         self.label = self._ui['label']
         
         self.cap = self._open_stream(self.source)
@@ -177,50 +181,6 @@ class Player:
         loop(_as_photoimage(next(self.frames)))
 
 
-
-def ui(root, pc):
-    _ui = {}
-    btns_frame = Frame(root)
-    btns_frame.pack(side="left", expand=0)
-    label = Label(root)
-    label.pack(side="right", expand=1)
-    _ui['label'] = label
-
-    Button(btns_frame, text="Quit", command=lambda: sys.exit(0)).grid(row=0, column=0)
-    Button(btns_frame, text="Pause", command=pc.pause).grid(row=1, column=0)
-
-    Button(btns_frame, text="Frame+", command=pc.Next).grid(row=2, column=0)
-
-    flip_pair_btn = Frame(btns_frame)
-    flip_pair_btn.grid(row=3, column=0)
-    Button(flip_pair_btn, text="F-H", command=pc.flip_horizontal).pack(side="left")
-    Button(flip_pair_btn, text="F-V", command=pc.flip_vertical).pack(side="right")
-
-
-    scale_btns = Frame(btns_frame)
-    scale_btns.grid(row=4, column=0)
-    Button(scale_btns, text="+", command=pc.scale_up).pack(side="left")
-    Button(scale_btns, text="0", command=pc.scale_reset).pack(side="left")
-    Button(scale_btns, text="-", command=pc.scale_down).pack(side="right")
-
-    offset_btns = Frame(btns_frame)
-    offset_btns.grid(row=5, column=0)
-    Button(offset_btns, text="L", command=pc.translate_left).pack(side="left")
-    Button(offset_btns, text="R", command=pc.translate_right).pack(side="right")
-    Button(offset_btns, text="U", command=pc.translate_up).pack(side="top")
-    Button(offset_btns, text="D", command=pc.translate_down).pack(side="bottom")
-    Button(offset_btns, text="0", command=pc.translate_reset).pack()
-
-
-    seq_btns = Frame(btns_frame)
-    seq_btns.grid(row=6, column=0)
-    Button(seq_btns, text="A", command=pc.set_sequence_start).pack(side="left")
-    Button(seq_btns, text="Reset", command=pc.reset_sequence).pack(side="left")
-    Button(seq_btns, text="B", command=pc.set_sequence_end).pack(side="right")
-
-    Button(btns_frame, text="Rotate", command=pc.rotate).grid(row=7, column=0)
-    Button(btns_frame, text="Gray", command=pc.grayscale_toggle).grid(row=8, column=0)
-    return _ui
 
 
 ## EFFECTS
